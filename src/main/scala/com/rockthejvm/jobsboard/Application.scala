@@ -1,6 +1,6 @@
 package com.rockthejvm.jobsboard
 
-import com.rockthejvm.jobsboard.http.routes.Health
+import com.rockthejvm.jobsboard.http
 import com.rockthejvm.jobsboard.config.Syntax.*
 
 import cats.*
@@ -32,7 +32,7 @@ object Application extends IOApp.Simple {
       .withHost(config.host)
       .withPort(config.port)
       .withHttpApp(
-        Health[IO].routes.orNotFound // to handle request on non-existing routes (i.e auto 404)
+        http.Api[IO].endpoints.orNotFound // to handle request on non-existing routes (i.e auto 404)
       )
       .build // Resource
       .use(_ => IO.println("Server Ready!") *> IO.never)
