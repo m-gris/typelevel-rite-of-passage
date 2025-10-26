@@ -1,7 +1,7 @@
 package com.rockthejvm.jobsboard.http
 
 import cats.*
-import cats.effect.IO
+import cats.effect.{IO, Concurrent}
 import cats.implicits.*
 
 import org.http4s.*
@@ -13,7 +13,7 @@ import org.http4s.dsl.Http4sDsl
 import com.rockthejvm.jobsboard.http.routes.*
 
 /* Will unify all our routes */
-class Api[F[_]: Monad] private {
+class Api[F[_]: Concurrent] private {
   private val healthRoutes = Health[F].routes
   private val jobsRoutes   = Jobs[F].routes
 
@@ -24,5 +24,5 @@ class Api[F[_]: Monad] private {
 }
 
 object Api {
-  def apply[F[_]: Monad] = new Api[F]
+  def apply[F[_]: Concurrent] = new Api[F]
 }

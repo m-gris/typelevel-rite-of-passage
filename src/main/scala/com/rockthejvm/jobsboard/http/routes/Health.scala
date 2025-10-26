@@ -1,6 +1,6 @@
 package com.rockthejvm.jobsboard.http.routes
 
-import cats.effect.IO
+import cats.effect.{IO, Concurrent}
 import cats.Monad
 
 import org.http4s.*
@@ -9,7 +9,7 @@ import org.http4s.dsl.impl.*
 import org.http4s.server.*
 import org.http4s.dsl.Http4sDsl
 
-class Health[F[_]: Monad] private extends Http4sDsl[F] {
+class Health[F[_]: Concurrent] private extends Http4sDsl[F] {
   // NOTE: extending Http4sDsl, allows not to have to
   //     val dsl = Http4sDsl[F]
   //     import dsl.*
@@ -24,5 +24,5 @@ class Health[F[_]: Monad] private extends Http4sDsl[F] {
 }
 
 object Health {
-  def apply[F[_]: Monad] = new Health[F]
+  def apply[F[_]: Concurrent] = new Health[F]
 }
