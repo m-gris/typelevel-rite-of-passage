@@ -19,13 +19,6 @@ import com.rockthejvm.jobsboard.config.EmberConfig
 
 object Application extends IOApp.Simple {
 
-  // val configSource: Either[
-  //   ConfigReaderFailures, // nice ERROR CHANNEL (missing fields etc...)
-  //   EmberConfig
-  // ] =
-  //   ConfigSource.default // i.e src/main/resources/application.conf
-  //     .load[EmberConfig]
-
   override def run: IO[Unit] = ConfigSource.default.loadF[IO, EmberConfig].flatMap { config =>
     EmberServerBuilder
       .default[IO]
