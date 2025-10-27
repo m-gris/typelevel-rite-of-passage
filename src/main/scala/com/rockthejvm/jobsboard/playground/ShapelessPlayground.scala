@@ -48,100 +48,185 @@ object ShapelessPlayground {
   // Runtime: tuple1 ++ tuple2
   // Example: (String, Int) ++ (Boolean, Char) = (String, Int, Boolean, Char)
 
-  // Type-level helper: flatten a tuple of tuples into a single flat tuple
-  // Why we need this:
-  //   - We have: Flattener[String], Flattener[Int], Flattener[Address]
-  //   - Their Out types: Tuple1[String], Tuple1[Int], (String, String)
-  //   - We need to compute: (Tuple1[String], Tuple1[Int], (String, String))
-  //                         → (String, Int, String, String)
+  // ============================================================================
+  // TYPE-LEVEL HELPER: FlattenTuple
+  // ============================================================================
+  // Purpose: Recursively flatten a tuple of tuples into a single flat tuple
   //
-  // Strategy: recursively concatenate each tuple with the rest
-  // Base case: EmptyTuple flattens to EmptyTuple
-  // Recursive: (head *: tail) → Concat[head, FlattenTuple[tail]]
+  // Why needed:
+  //   When deriving Flattener[Person], we get individual Flattener instances:
+  //     - Flattener[String]  with Out = Tuple1[String]
+  //     - Flattener[Int]     with Out = Tuple1[Int]
+  //     - Flattener[Address] with Out = (String, String)
   //
-  // Example walkthrough:
+  //   These Out types form a tuple: (Tuple1[String], Tuple1[Int], (String, String))
+  //   We need to flatten this to: (String, Int, String, String)
+  //
+  // Strategy: Recursively concatenate each tuple element with the flattened tail
+  //   Base case: EmptyTuple → EmptyTuple
+  //   Recursive case: (head *: tail) → head ++ FlattenTuple[tail]
+  //
+  // Example expansion:
   //   FlattenTuple[(Tuple1[String], Tuple1[Int], (String, String))]
-  //   → Concat[Tuple1[String], FlattenTuple[(Tuple1[Int], (String, String))]]
-  //   → Concat[Tuple1[String], Concat[Tuple1[Int], FlattenTuple[(String, String)]]]
-  //   → Concat[Tuple1[String], Concat[Tuple1[Int], Concat[(String, String), EmptyTuple]]]
-  //   → Concat[Tuple1[String], Concat[Tuple1[Int], (String, String)]]
-  //   → Concat[Tuple1[String], (Int, String, String)]
-  //   → (String, Int, String, String) ✓
+  //   = Tuple1[String] ++ FlattenTuple[(Tuple1[Int], (String, String))]
+  //   = Tuple1[String] ++ (Tuple1[Int] ++ FlattenTuple[(String, String)])
+  //   = Tuple1[String] ++ (Tuple1[Int] ++ ((String, String) ++ EmptyTuple))
+  //   = Tuple1[String] ++ (Tuple1[Int] ++ (String, String))
+  //   = Tuple1[String] ++ (Int, String, String)
+  //   = (String, Int, String, String) ✓
+  //
+  // Note: Tuple.Concat is built into Scala 3, no manual implementation needed
   type FlattenTuple[T <: Tuple] <: Tuple = T match {
     case EmptyTuple => EmptyTuple
     case h *: t     => Tuple.Concat[h, FlattenTuple[t]]
-    // Note: h will be a Tuple (like Tuple1[String] or (String, String))
-    // Scala 3 match types handle this recursively
   }
 
+  // ============================================================================
+  // TYPE CLASS: Flattener
+  // ============================================================================
+  // Purpose: Convert any value (including nested case classes) to a flat tuple
+  //
+  // Examples:
+  //   - Flattener[Int]        with Out = Tuple1[Int]
+  //   - Flattener[String]     with Out = Tuple1[String]
+  //   - Flattener[Address]    with Out = (String, String)
+  //   - Flattener[Person]     with Out = (String, Int, String, String)
+  //
+  // Design: Uses dependent types (type Out depends on input type A)
   trait Flattener[A] {
-    type Out // The result type: a flat tuple
-    // e.g., for Address → Out = (String, String)
-    // e.g., for Int → Out = Tuple1[Int]
+    type Out <: Tuple // The result type: always a tuple (flat or Tuple1)
     def flatten(a: A): Out
   }
 
   object Flattener {
-    // Aux pattern: helps the compiler infer the Out type
-    // Usage: Flattener.Aux[Address, (String, String)]
-    //   instead of: Flattener[Address] { type Out = (String, String) }
-    type Aux[A, O] = Flattener[A] { type Out = O }
+    // ============================================================================
+    // AUX PATTERN
+    // ============================================================================
+    // Purpose: Extract the dependent type member 'Out' as an explicit type parameter
+    //          This makes it available for implicit resolution in subsequent steps
+    //
+    // Usage:
+    //   Flattener.Aux[Address, (String, String)]
+    //     instead of:
+    //   Flattener[Address] { type Out = (String, String) }
+    //
+    // Why: The compiler can't always infer type members during implicit resolution
+    //      The Aux pattern makes the Out type explicit and solvable
+    //
+    // Recommended by: "The Type Astronaut's Guide to Shapeless" (dependent types chapter)
+    type Aux[A, O <: Tuple] = Flattener[A] { type Out = O }
 
-    // Recursive case: for case classes (products)
-    // IMPORTANT: This MUST come BEFORE primitiveFlattener
-    // Otherwise compiler picks the more general primitiveFlattener
-    // K0.ProductInstances[Flattener, A] means:
-    //   "give me a Flattener instance for EACH field of case class A"
-    // Example: For Person(name: String, age: Int, address: Address)
-    //   inst provides: Flattener[String], Flattener[Int], Flattener[Address]
+    // ============================================================================
+    // RECURSIVE DERIVATION: Case Classes (Products)
+    // ============================================================================
+    // Purpose: Automatically derive Flattener for any case class by:
+    //   1. Getting a Flattener for each field
+    //   2. Recursively flattening nested case classes
+    //   3. Concatenating all flattened results
     //
-    // The magic: compiler recursively derives Flattener[Address]
-    //   by calling this same given again!
+    // Example derivation chain for Person(name: String, age: Int, address: Address):
+    //   Flattener[Person] needs:
+    //     - Flattener[String]  → primitiveFlattener → Tuple1[String]
+    //     - Flattener[Int]     → primitiveFlattener → Tuple1[Int]
+    //     - Flattener[Address] → productFlattener (RECURSIVE!) → (String, String)
+    //   Result: FlattenTuple[(Tuple1[String], Tuple1[Int], (String, String))]
+    //         = (String, Int, String, String) ✓
     //
-    // We also need K0.ProductGeneric to convert case class ↔ tuple
+    // Key components:
+    //   - K0.ProductInstances[Flattener, A]: Provides Flattener[T] for each field T
+    //   - K0.ProductGeneric[A]: Mirror for case class A (provides field types, toRepr, etc.)
+    //
+    // IMPORTANT: Must come BEFORE primitiveFlattener in source order
+    //            Otherwise, compiler might pick primitiveFlattener for case classes!
+    //
+    // Note: Using by-name parameter (=>) for inst to prevent implicit divergence
+    //       Recommended by "The Type Astronaut's Guide" for recursive derivation
+    //       Note: gen must be strict (not by-name) because:
+    //         1. We need gen.MirroredElemTypes as a stable type path
+    //         2. Scala 3 doesn't have Shapeless 2's Lazy wrapper
+    //         3. By-name breaks implicit search for K0.ProductGeneric
     given productFlattener[A](using
-        inst: K0.ProductInstances[Flattener, A],
-        gen: K0.ProductGeneric[A]
+        inst: => K0.ProductInstances[Flattener, A], // By-name = lazy evaluation
+        gen: K0.ProductGeneric[A]                   // Strict - needed for type access
     ): Flattener[A] =
       new Flattener[A] {
-        // Out type computation (type-level):
-        // 1. Get tuple of field types from gen.MirroredElemTypes
-        // 2. Map each field type through Flattener to get Out types
-        // 3. Flatten that tuple of tuples using our FlattenTuple helper
+        // --------------------------------------------------------------------------
+        // TYPE-LEVEL: Compute Out type at compile-time
+        // --------------------------------------------------------------------------
+        // Strategy:
+        //   1. gen.MirroredElemTypes gives tuple of field types: (String, Int, Address)
+        //   2. Tuple.Map[_, Flattener] extracts Out from each Flattener:
+        //        (Flattener[String]#Out, Flattener[Int]#Out, Flattener[Address]#Out)
+        //      = (Tuple1[String], Tuple1[Int], (String, String))
+        //   3. FlattenTuple recursively concatenates: (String, Int, String, String)
         //
-        // Example: Person has fields (String, Int, Address)
-        //   Tuple.Map[gen.MirroredElemTypes, Flattener] extracts Out from each:
-        //     → (Flattener[String]#Out, Flattener[Int]#Out, Flattener[Address]#Out)
-        //     → (Tuple1[String], Tuple1[Int], (String, String))
-        //   FlattenTuple flattens this:
-        //     → (String, Int, String, String)
+        // This all happens at compile-time - zero runtime overhead!
         type Out = FlattenTuple[Tuple.Map[gen.MirroredElemTypes, Flattener]]
 
+        // --------------------------------------------------------------------------
+        // RUNTIME: Execute flattening logic
+        // --------------------------------------------------------------------------
         def flatten(a: A): Out = {
-          // Runtime implementation:
-          // foldRight signature: foldRight[Acc](x: A)(init: Acc)(f: [t] => (F[t], t, Acc) => Acc)
-          // - x: A = the original case class instance (not tuple!)
-          // - init: Acc = starting accumulator (EmptyTuple)
-          // - f: processes each field right-to-left
+          // K0.ProductInstances.foldRight signature:
+          //   foldRight[Acc](x: A)(init: Acc)(f: [t] => (F[t], t, Acc) => Acc): Acc
+          //
+          // Parameters:
+          //   - x: A           = the case class instance to process
+          //   - init: Acc      = starting accumulator (EmptyTuple for us)
+          //   - f: [t] => ...  = polymorphic function processing each field
+          //
+          // Processing: Iterates RIGHT-TO-LEFT over fields
+          //   Person("Alice", 30, Address("Main St", "NYC"))
+          //   → Process Address → ("Main St", "NYC")
+          //   → Process 30      → (30,) ++ ("Main St", "NYC") = (30, "Main St", "NYC")
+          //   → Process "Alice" → ("Alice",) ++ (30, ...) = ("Alice", 30, "Main St", "NYC")
+          //
+          // Note: We must cast to Tuple because ft.Out is an abstract type member
+          //       The type system can't prove ft.Out <: Tuple without the cast
+          //       This is a known limitation when working with dependent types
           inst
             .foldRight[Tuple](a)(EmptyTuple)(
               [t] =>
                 (ft: Flattener[t], elem: t, acc: Tuple) => {
+                  // Flatten current field (might be nested case class)
                   val flattened = ft.flatten(elem).asInstanceOf[Tuple]
-                  // Cast ft.Out to Tuple so ++ is available
+                  // Concatenate with accumulator
                   (flattened ++ acc).asInstanceOf[Tuple]
               }
             )
-            .asInstanceOf[Out]
+            .asInstanceOf[Out] // Final cast to the computed Out type
         }
       }
 
-    // Base case: primitives don't need flattening
-    // Int → Tuple1[Int]
-    // String → Tuple1[String]
-    // Note: We use Tuple1 to keep everything as tuples (consistency)
-    // IMPORTANT: This is LOW priority - only used when productFlattener doesn't match
-    given primitiveFlattener[A](using NotGiven[K0.ProductInstances[Flattener, A]]): Flattener.Aux[A, Tuple1[A]] =
+    // ============================================================================
+    // BASE CASE: Primitives (Leaf Types)
+    // ============================================================================
+    // Purpose: Handle types that cannot be further decomposed (Int, String, Boolean, etc.)
+    //
+    // Strategy: Wrap primitives in Tuple1 for consistency
+    //   Why Tuple1? To maintain homogeneity - all Flattener.Out types are tuples
+    //   This allows us to use ++ operator uniformly in productFlattener
+    //
+    // Examples:
+    //   - Int       → Tuple1[Int]
+    //   - String    → Tuple1[String]
+    //   - Boolean   → Tuple1[Boolean]
+    //   - Option[T] → Tuple1[Option[T]]  (treated as atomic, not decomposed)
+    //
+    // Priority Control: Uses NotGiven[K0.ProductInstances[Flattener, A]]
+    //   This ensures primitiveFlattener is ONLY selected when:
+    //     - A is NOT a case class (no ProductInstances available)
+    //     - productFlattener cannot match
+    //
+    // Why NotGiven is needed:
+    //   Without it, both productFlattener and primitiveFlattener could match String
+    //   The compiler would report ambiguous implicit resolution
+    //   NotGiven[...] creates a negative constraint: "only if productFlattener CAN'T apply"
+    //
+    // Recommended by: "The Type Astronaut's Guide to Shapeless" (type class derivation pattern)
+    given primitiveFlattener[A](using
+        NotGiven[K0.ProductInstances[Flattener, A]]
+    ): Flattener.Aux[A, Tuple1[A]] =
       new Flattener[A] {
         type Out = Tuple1[A]
         def flatten(a: A): Tuple1[A] = Tuple1(a)
@@ -251,7 +336,7 @@ object ShapelessPlayground {
     // 4. Flattener[Address] uses productFlattener again → Flattener[String], Flattener[String]
     // 5. All primitives use primitiveFlattener
     // 6. Type-level: computes (String, Int, String, String)
-    val personFlattener = summon[Flattener[Person]]
+    val personFlattener   = summon[Flattener[Person]]
     val flatPersonGeneric = personFlattener.flatten(person)
 
     println(s"\nPerson flattened generically: $flatPersonGeneric")
