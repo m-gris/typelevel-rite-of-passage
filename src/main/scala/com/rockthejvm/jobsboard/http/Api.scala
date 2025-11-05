@@ -4,6 +4,8 @@ import cats.*
 import cats.effect.{IO, Concurrent}
 import cats.implicits.*
 
+import org.typelevel.log4cats.Logger
+
 import org.http4s.*
 import org.http4s.dsl.*
 import org.http4s.dsl.impl.*
@@ -13,7 +15,7 @@ import org.http4s.dsl.Http4sDsl
 import com.rockthejvm.jobsboard.http.routes.*
 
 /* Will unify all our routes */
-class Api[F[_]: Concurrent] private {
+class Api[F[_]: Concurrent: Logger] private {
   private val healthRoutes = Health[F].routes
   private val jobsRoutes   = Jobs[F].routes
 
@@ -24,5 +26,5 @@ class Api[F[_]: Concurrent] private {
 }
 
 object Api {
-  def apply[F[_]: Concurrent] = new Api[F]
+  def apply[F[_]: Concurrent: Logger] = new Api[F]
 }

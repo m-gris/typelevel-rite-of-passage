@@ -7,6 +7,9 @@ import cats.*
 import cats.effect.*
 import cats.implicits.*
 
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
+
 import org.http4s.*
 import org.http4s.dsl.*
 import org.http4s.dsl.impl.*
@@ -15,9 +18,15 @@ import org.http4s.ember.server.EmberServerBuilder
 
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
+
 import com.rockthejvm.jobsboard.config.EmberConfig
+import com.rockthejvm.jobsboard.logging.syntax.*
 
 object Application extends IOApp.Simple {
+
+  // using a specific Slf4j application builder
+  // Slf4j:  Simple Logging Facade for Java
+  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   override def run: IO[Unit] = ConfigSource.default.loadF[IO, EmberConfig].flatMap { config =>
     EmberServerBuilder
