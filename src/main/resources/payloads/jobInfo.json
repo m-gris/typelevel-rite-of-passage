@@ -1,0 +1,25 @@
+{
+  "company": "Rock the JVM",
+  "title": "Senior Scala Developer",
+  "description": "We're looking for an experienced Scala developer to work on exciting functional programming projects",
+  "location": {
+    "country": "Italy",
+    "city": "Rome"
+  },
+  "salary": {
+    "min": 60000,
+    "max": 90000,
+    "currency": "EUR"
+  },
+  "externalUrl": "https://rockthejvm.com/careers",
+  "is_remote": true,
+  "tags": [
+    "scala",
+    "cats",
+    "http4s",
+    "functional-programming"
+  ],
+  "image_url": "https://rockthejvm.com/logo.png",
+  "seniority": "Senior",
+  "other": "Fully remote position"
+}
