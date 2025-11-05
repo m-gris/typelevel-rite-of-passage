@@ -52,7 +52,7 @@ class Jobs[F[_]: Concurrent] private extends Http4sDsl[F] {
       date = System.currentTimeMillis(),
       info = jobInfo,
       poster = JobPoster(email = "TODO@ouremail.com"),
-      is_active = true
+      isActive = true
     ).pure[F]
 
   private val create: HttpRoutes[F] = HttpRoutes.of[F] { case request @ POST -> Root / "create" =>

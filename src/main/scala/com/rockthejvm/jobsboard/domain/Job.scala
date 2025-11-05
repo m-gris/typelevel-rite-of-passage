@@ -3,12 +3,17 @@ package com.rockthejvm.jobsboard.domain
 import java.util.UUID
 
 object job {
+
+  case class Salary(min: Option[Int], max: Option[Int], currency: Option[String])
+  case class Location(country: Option[String], city: Option[String])
+  case class JobPoster(email: String)
+
   case class Job(
       id: UUID,
       date: Long,
       info: JobInfo,
       poster: JobPoster,
-      is_active: Boolean
+      isActive: Boolean
   )
   case class JobInfo(
       company: String,
@@ -17,7 +22,7 @@ object job {
       location: Location,
       salary: Salary,
       externalUrl: String,
-      is_remote: Boolean,
+      isRemote: Boolean,
       tags: Option[List[String]],
       image_url: Option[String],
       seniority: Option[String],
@@ -32,7 +37,7 @@ object job {
       location = Location(country = None, city = None),
       salary = Salary(min = None, max = None, currency = None),
       externalUrl = "",
-      is_remote = false,
+      isRemote = false,
       tags = None,
       image_url = None,
       seniority = None,
@@ -40,7 +45,4 @@ object job {
     )
   }
 
-  case class Salary(min: Option[Int], max: Option[Int], currency: Option[String])
-  case class Location(country: Option[String], city: Option[String])
-  case class JobPoster(email: String)
 }
