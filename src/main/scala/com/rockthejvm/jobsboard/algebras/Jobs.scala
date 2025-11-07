@@ -1,4 +1,4 @@
-package com.rockthejvm.jobsboard.config
+package com.rockthejvm.jobsboard.algebras
 
 import java.util.UUID
 
@@ -27,21 +27,21 @@ class LiveJobs[F[_]: MonadCancelThrow] private (xa: Transactor[F]) extends Jobs[
   override def create(poster: JobPoster, info: JobInfo): F[UUID] =
     sql"""
       INSERT INTO jobs
-          (date
-          company
-          title
-          description
+          (date,
+          company,
+          title,
+          description,
           country,
           city,
-          min_salary,
-          max_salary,
+          salary_min,
+          salary_max,
           currency,
-          externalUrl
-          is_remote
-          tags
-          image_url
-          seniority
-          other
+          external_url,
+          is_remote,
+          tags,
+          image_url,
+          seniority,
+          other,
           poster_email,
           is_active)
           VALUES (
@@ -61,7 +61,7 @@ class LiveJobs[F[_]: MonadCancelThrow] private (xa: Transactor[F]) extends Jobs[
             ${info.seniority},
             ${info.other},
             ${poster.email},
-            false, -- not active by default...
+            false -- not active by default...
             )
       """
       // Doobie chain: Fragment -> .update -> Update0 -> .withUniqueGeneratedKeys -> ConnectionIO[UUID]
@@ -75,23 +75,23 @@ class LiveJobs[F[_]: MonadCancelThrow] private (xa: Transactor[F]) extends Jobs[
     sql"""
       SELECT
         --
-        id
-        date
+        id,
+        date,
         -- JOB INFO
-        company
-        title
-        description
+        company,
+        title,
+        description,
         country,
         city,
-        min_salary,
-        max_salary,
+        salary_min,
+        salary_max,
         currency,
-        externalUrl
-        is_remote
-        tags
-        image_url
-        seniority
-        other
+        external_url,
+        is_remote,
+        tags,
+        image_url,
+        seniority,
+        other,
         -- JOB POSTER
         poster_email,
         --
@@ -108,17 +108,17 @@ class LiveJobs[F[_]: MonadCancelThrow] private (xa: Transactor[F]) extends Jobs[
   override def find(id: UUID): F[Option[Job]] =
     sql"""
       SELECT
-        id
+        id,
         date,
         company,
         title,
         description,
         country,
         city,
-        min_salary,
-        max_salary,
+        salary_min,
+        salary_max,
         currency,
-        externalUrl,
+        external_url,
         is_remote,
         tags,
         image_url,
@@ -145,8 +145,8 @@ class LiveJobs[F[_]: MonadCancelThrow] private (xa: Transactor[F]) extends Jobs[
       description=${info.description},
       country=${info.location.country},
       city=${info.location.city},
-      min_salary=${info.salary.min},
-      max_salary=${info.salary.max},
+      salary_min=${info.salary.min},
+      salary_max=${info.salary.max},
       currency=${info.salary.currency},
       external_url=${info.externalUrl},
       is_remote=${info.isRemote},
