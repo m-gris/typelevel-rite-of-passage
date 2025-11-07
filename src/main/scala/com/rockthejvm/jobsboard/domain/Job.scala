@@ -24,7 +24,7 @@ object job {
       externalUrl: String,
       isRemote: Boolean,
       tags: Option[List[String]],
-      image_url: Option[String],
+      imageUrl: Option[String],
       seniority: Option[String],
       other: Option[String]
   )
@@ -39,7 +39,7 @@ object job {
       externalUrl = "",
       isRemote = false,
       tags = None,
-      image_url = None,
+      imageUrl = None,
       seniority = None,
       other = None
     )
